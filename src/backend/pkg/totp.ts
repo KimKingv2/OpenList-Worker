@@ -170,6 +170,5 @@ export function buildOtpauthUrl(
  * @returns Data URL 格式的 QR 码
  */
 export async function buildQrImageUrl(otpauthUrl: string): Promise<string> {
-  const svg = await QRCode.toString(otpauthUrl, { type: "svg" })
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+  return QRCode.toDataURL(otpauthUrl)
 }
