@@ -97,16 +97,46 @@ async function safeProxyFetch(
       redirect: "manual",
     })
 
+
     const location = res.headers.get("location")
     if (res.status >= 300 && res.status < 400 && location) {
-      current = new URL(location, current).toString()
+      const previousUrl = new URL(current)
+      const nextUrl = new URL(location, current)
+    
+      current = nextUrl.toString()
       const next: Record<string, string> = {}
+    
+      // 仅在同一可信云盘主域内保留鉴权头，避免跨服务泄露 Cookie。
+      const isQuarkHost = (host: string) =>
+        host === "quark.cn" || host.endsWith(".quark.cn")
+    
+      const isUcHost = (host: string) =>
+        host === "uc.cn" || host.endsWith(".uc.cn")
+    
+      const sameCloudDriveDomain =
+        (isQuarkHost(previousUrl.hostname) &&
+          isQuarkHost(nextUrl.hostname)) ||
+        (isUcHost(previousUrl.hostname) &&
+          isUcHost(nextUrl.hostname))
+    
       for (const [k, v] of Object.entries(currentHeaders)) {
-        if (SAFE_REDIRECT_HEADER_KEYS.has(k.toLowerCase()) && v) next[k] = v
+        const key = k.toLowerCase()
+    
+        if (SAFE_REDIRECT_HEADER_KEYS.has(key) && v) {
+          next[k] = v
+        } else if (
+          sameCloudDriveDomain &&
+          (key === "cookie" || key === "authorization") &&
+          v
+        ) {
+          next[k] = v
+        }
       }
+    
       currentHeaders = next
       continue
     }
+
     return res
   }
   throw new Error("Proxy download blocked: too many redirects")
